@@ -1,0 +1,80 @@
+import pandas as pd
+import numpy as np
+import statsmodels.api as sm
+import seaborn as sns
+import csv
+import matplotlib.pyplot as plt
+import plotly.express as px  
+import plotly.graph_objects as go
+from sklearn import metrics
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict,RepeatedStratifiedKFold,StratifiedKFold
+
+#importing the file
+investment_df= pd.read_csv(r'\Users\khan1\OneDrive\Desktop\investment_VC\investments_VC.csv', encoding= 'unicode_escape')
+    
+#printing the data
+print(investment_df.shape)
+investment_df.describe()
+
+#removing duplicates
+investment_df = investment_df.drop_duplicates()
+print(investment_df.shape)
+
+#cleaning the dataframe 
+investment_df = investment_df.drop(['permalink', 'homepage_url'], axis=1)
+investment_df.dropna(how='any', subset=['name'], axis=0, inplace=True)
+investment_df['first_funding_at'] = investment_df.first_funding_at.str.split("-").str[0]
+investment_df['first_funding_at'] = investment_df['first_funding_at'].astype(int)
+investment_df['last_funding_at'] = investment_df.last_funding_at.str.split("-").str[0]
+investment_df['last_funding_at'] = investment_df['last_funding_at'].astype(int)
+investment_df[' funding_total_usd '] = investment_df[' funding_total_usd '].str.strip().str.replace(",","")
+investment_df[' funding_total_usd '] = investment_df[' funding_total_usd '].replace("-",0).astype("float")
+investment_df['status'] = investment_df['status'].replace(np.nan,"unknown")
+print(investment_df.shape)
+investment_df.head()
+
+#removing startups before year 2000
+print(investment_df[investment_df['first_funding_at']<2000][['name', 'founded_at', 'first_funding_at']])
+investment_df.drop(investment_df[investment_df['first_funding_at']<2000].index, inplace=True)
+investment_df.shape
+
+
+#model building
+startup_df = investment_df.drop(
+    ['founded_at',
+     'post_ipo_equity'
+     ,'post_ipo_debt'
+     ,'round_G'
+     ,'round_H'
+     ,'founded_year'
+     ,'founded_quarter','state_code','region','city'
+     
+     ], axis = 1)
+print(startup_df)
+pd.get_dummies(startup_df)
+
+#training the model
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state = 10)
+from sklearn.ensemble import RandomForestClassifier
+df = pd.DataFrame(startup_df,columns=['funding_rounds','funding total USD'])
+print (df)
+df.plot(x ='funding_rounds',y='funding total USD', kind = 'scatter')
+ 
+#fitting the model
+model = RandomForestClassifier(n_estimators=110) 
+model.fit(X_train, y_train)
+ 
+result = permutation_importance(model, X_train, y_train, n_repeats=10,random_state=0)
+fimp = pd.Series(result.importances_mean,index=X_train.columns.values).sort_values(ascending=False)
+fimp
+ 
+#predicting the outcome
+pred = X_test.sample(n=1)
+outcome = model.predict(pred)
+ 
+if outcome == 1:
+  print('This startup is predicted to be successful') 
+ 
+elif outcome == 0:
+  print('This startup is predicted NOT to be successful')
